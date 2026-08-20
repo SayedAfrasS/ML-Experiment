@@ -1,0 +1,296 @@
+\documentclass[12pt,a4paper]{article}
+
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath,amssymb}
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{longtable}
+
+\hypersetup{colorlinks=true,linkcolor=blue,urlcolor=blue}
+
+\setlength{\headheight}{14.5pt}
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{ICS1512}
+\rhead{Machine Learning Algorithms Laboratory}
+\cfoot{\thepage}
+
+\lstset{
+language=Python,
+basicstyle=\ttfamily\small,
+numbers=left,
+frame=single,
+breaklines=true,
+showstringspaces=false
+}
+
+\begin{document}
+
+\begin{tabular}{|p{4cm}|p{11cm}|}
+\hline
+Experiment No. & 1 \\ \hline
+Experiment Title & Working with Python Packages -- Numpy, Scipy, Scikit-Learn, Matplotlib
+\footnote{\textbf{GitHub Repository: }\url{https://github.com/sayedafras/ics1512-ml-lab}}\\ \hline
+Student Name & Sayed Afras S \\ \hline
+Register Number & \\ \hline
+Faculty & Dr. Poreddy Ajay Kumar Reddy \\ \hline
+Submission Date & \\ \hline
+\end{tabular}
+
+\section{Objective}
+The main aim of this experiment is to get comfortable with the basic Python packages that we will keep using throughout this lab -- Numpy, Pandas, Scipy, Scikit-learn and Matplotlib. Instead of just reading about the functions, the idea here is to actually build a small reusable pipeline (EDA, preprocessing, feature selection, splitting and evaluation as seperate functions) and run it on a real dataset, so that the workflow becomes clear before we jump into actual algorithms in the next experiments. Along with that, five different public datasets are studied to identify what kind of ML problem they represent (classification, regression, supervised/unsupervised etc.) and what feature selection technique and algorithm would suit each one.
+
+\section{Problem Statement}
+Given a raw, uncleaned dataset, the task is to explore it using standard Python data-science libraries, clean and preprocess it, select the most relevant features, split it into train/validation/test sets, fit an appropriate model and finally evaluate the model using suitable metrics. This experiment does not focus on any one specific ML algorithm -- the goal is more about building intuition for the \textit{end-to-end workflow} that almost every ML project follows, and writing the code in a resuable, modular way (functions that can be called again for any dataset in later experiments, not just this one).
+
+As part of the theory portion of the experiment, five publicly avaliable datasets were also studied and the type of ML task associated with each of them is summarised below.
+
+\subsection*{Dataset -- ML Task Identification}
+\begin{longtable}{|p{3.2cm}|p{2.6cm}|p{3.4cm}|p{4cm}|}
+\hline
+\textbf{Dataset} & \textbf{Type of ML Task} & \textbf{Feature Selection Technique} & \textbf{Suitable ML Algorithm} \\ \hline
+Iris Dataset & Supervised -- Multiclass Classification & ANOVA F-test (SelectKBest) & K-Nearest Neighbours / Decision Tree \\ \hline
+Loan Amount Prediction & Supervised -- Regression & Correlation analysis + SelectKBest (f\_regression) & Linear Regression / Random Forest Regressor \\ \hline
+Predicting Diabetes & Supervised -- Binary Classification & Chi-square test / SelectKBest & Logistic Regression / SVM \\ \hline
+Classification of Email Spam & Supervised -- Binary Classification (Text) & Chi-square test on TF-IDF features & Naive Bayes (Multinomial) \\ \hline
+Handwritten Character Recognition (MNIST) & Supervised -- Multiclass Classification (Image) & PCA (dimensionality reduction, not exactly feature selection but serves same purpose here) & CNN / SVM \\ \hline
+\end{longtable}
+
+\textit{Note: } Iris and MNIST are the most straight forward ones since they are already clean and labelled, so they are pure classification problems. Loan amount is a regression task because the target (amount) is continous. Diabetes prediction and spam detection are both binary classification, the only difference is spam works on text data so TF-IDF vectors are used instead of numeric features directly.
+
+\section{Dataset Description}
+For the coding part of this experiment, instead of using Iris (which is a bit too clean and gets boring after the 100th time), the \textbf{Electric Car Data} dataset from Kaggle was used to actually run and test the reusable functions. This is a small dataset with details of different electric vehicles like acceleration, top speed, range, price etc, which makes it good for practicing regression along with the usual EDA/preprocessing steps.
+
+\begin{longtable}{|p{6cm}|p{8cm}|}
+\hline
+Dataset Name & Electric Car Data (ElectricCarData\_Clean.csv) \\ \hline
+Dataset Source & Kaggle -- \url{https://www.kaggle.com/datasets/geoffnel/evs-one-electric-vehicle-dataset} \\ \hline
+Number of Samples & 103 \\ \hline
+Number of Features & 13 (excluding target) \\ \hline
+Number of Classes & Not applicable -- Regression target (PriceEuro) \\ \hline
+Missing Values & None found for the numeric columns used, but \texttt{FastCharge\_KmH} had a few non-numeric entries which were handled during preprocessing \\ \hline
+Train-Test Split & 70\% Train, 10\% Validation, 20\% Test (using \texttt{train\_test\_split} twice) \\ \hline
+\end{longtable}
+
+\section{Exploratory Data Analysis}
+A single reusable function \texttt{perform\_eda()} was written which takes any dataframe and automatically prints the shape, head, tail, info, statistical summary, duplicate count and also generates a 6x2 grid of plots (missing values, correlation heatmap, histogram, boxplot, scatter, category counts, pie chart, feature means, violin plot, density plot, outlier counts and a small summary box). This way the same function can just be called again for any dataset in the future experiments without re-writing all this code every time.
+
+\begin{lstlisting}[caption={Reusable EDA function (trimmed for space, full version in notebook)}]
+def perform_eda(df, filename="eda_summary.eps"):
+    print("DATASET SHAPE")
+    print(df.shape)
+    print("FIRST 5 ROWS")
+    print(df.head())
+    ...
+    num = df.select_dtypes(include=np.number)
+    cat = df.select_dtypes(exclude=np.number)
+    fig, axes = plt.subplots(6, 2, figsize=(40, 50))
+    axes = axes.flatten()
+    # Missing Values, Correlation Heatmap, Histogram,
+    # Boxplot, Scatter, Countplot, Pie Chart, Feature Means,
+    # Violin, Density, Outlier Count, Summary Table
+    ...
+    plt.savefig(filename, dpi=600, format="eps", bbox_inches="tight")
+    plt.show()
+\end{lstlisting}
+
+Running this on the raw dataset gave the following shape and summary:
+
+\begin{lstlisting}[language=,caption={Console output -- EDA before preprocessing}]
+DATASET SHAPE
+(103, 14)
+DATA TYPES
+Brand               object
+Model               object
+AccelSec           float64
+TopSpeed_KmH          int64
+Range_Km              int64
+Efficiency_WhKm       int64
+FastCharge_KmH       object
+RapidCharge          object
+PowerTrain           object
+PlugType             object
+BodyStyle            object
+Segment               object
+Seats                 int64
+PriceEuro             int64
+DUPLICATE ROWS
+0
+\end{lstlisting}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\linewidth]{eda_0.png}
+\caption{EDA summary grid for the Electric Car Data before preprocessing}
+\end{figure}
+
+\textbf{Inference:}
+
+There are no duplicate rows in the dataset which is good, and also no completely missing cells in the numeric columns, so we do not have to worry too much about imputing large chunks of data. But the \texttt{FastCharge\_KmH} column is stored as text/object type because some rows have a non numeric placeholder value in them, this had to be fixed before scaling. The correlation heatmap shows that \texttt{Range\_Km} and \texttt{TopSpeed\_KmH} have a decent positive correlation with the price, which kind of makes sense because faster and longer-range EVs are usually the expensive ones. The outlier plot also shows a couple of cars (probably the premium brands like Tesla or Porsche models) sitting way outside the IQR range for price and top speed.
+
+\section{Data Preprocessing}
+The preprocessing step is handled by a single function \texttt{preprocess\_data()} which takes a bunch of optional parameters (which columns to drop, how to fill missing numeric/categorical values, which encoding and scaling strategy to use, and how to treat outliers). Keeping it parameterised like this means it can be reused for classification tasks too later, we just change the arguments instead of writing new code.
+
+\begin{lstlisting}[caption={Reusable preprocessing function}]
+def preprocess_data(df, drop_columns=None, missing_num="mean",
+                     missing_cat="mode", encoding="label",
+                     scaling="standard", outliers="iqr"):
+    df = df.copy()
+    if drop_columns:
+        df.drop(columns=drop_columns, inplace=True, errors="ignore")
+
+    numeric_cols = df.select_dtypes(include=np.number).columns
+    categorical_cols = df.select_dtypes(exclude=np.number).columns
+
+    for col in numeric_cols:
+        if df[col].isnull().sum() > 0:
+            if missing_num == "mean":
+                df[col].fillna(df[col].mean(), inplace=True)
+
+    for col in categorical_cols:
+        if df[col].isnull().sum() > 0:
+            df[col].fillna(df[col].mode()[0], inplace=True)
+
+    if outliers == "iqr":
+        for col in numeric_cols:
+            Q1, Q3 = df[col].quantile(0.25), df[col].quantile(0.75)
+            IQR = Q3 - Q1
+            df[col] = df[col].clip(Q1 - 1.5*IQR, Q3 + 1.5*IQR)
+
+    if encoding == "label":
+        le = LabelEncoder()
+        for col in categorical_cols:
+            df[col] = le.fit_transform(df[col].astype(str))
+
+    if scaling == "standard":
+        scaler = StandardScaler()
+        df[numeric_cols] = scaler.fit_transform(df[numeric_cols])
+    return df
+\end{lstlisting}
+
+For this run the default options were used, so: missing numeric values were filled using mean, missing categorical values with mode, outliers were clipped using the IQR rule (not removed, just clipped to the upper/lower bound, so we don't loose any rows), categorical columns like Brand, PlugType, BodyStyle etc were Label Encoded, and finally all the numeric columns (including the encoded ones) were standard scaled. After running this the same \texttt{perform\_eda()} function was called again just to double check everything looks fine.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\linewidth]{eda_1.png}
+\caption{EDA summary grid for the Electric Car Data after preprocessing}
+\end{figure}
+
+\textbf{Inference:}
+
+Once scaling is applied all the numeric features are now centered around 0 with unit varience, which is exactly what we want before feeding this into a distance/gradient based model like Linear Regression. The outlier count also drops a bit for a few columns since clipping pulled the extreme values back inside the IQR fence instead of leaving them as is. Looking at the histogram/density plot after scaling, most of the columns look roughly bell shaped now which is a good sign, although a couple of columns (like Seats) are still pretty skewed because they only take a small number of discrete values, scaling can't really fix that.
+
+\section{Machine Learning Algorithm}
+Since the target column here, \texttt{PriceEuro}, is continous and has way more than 10 unique values, the pipeline automatically decided this is a \textbf{regression} problem and used \textbf{Linear Regression} from scikit-learn (this logic is written inside the \texttt{main()} function using a simple check \texttt{if y.nunique() <= 10} to switch between classification and regression).
+
+\begin{itemize}
+\item \textbf{Working principle:} Linear Regression tries to find a straight line (or hyperplane in higher dimensions) relationship between the input features and target by minimising the sum of squared errors between the predicted and actual values.
+\item \textbf{Mathematical formulation:}
+\[
+\hat{y} = w_0 + w_1x_1 + w_2x_2 + \dots + w_nx_n
+\]
+where the weights $w$ are found by minimising the cost function
+\[
+J(w) = \frac{1}{m}\sum_{i=1}^{m}(y_i - \hat{y}_i)^2
+\]
+\item \textbf{Advantages:} Simple, fast to train, easy to interpret the coefficients, works decently well when the relation between features and target is actually linear.
+\item \textbf{Limitations:} Assumes a linear relationship which is not always true, sensitive to outliers even after we clip them somewhat, and it does not handle multicollinearity between features very well (which is why feature selection was done first).
+\end{itemize}
+
+\section{Experimental Setup}
+\begin{tabular}{ll}
+\toprule
+Python Version & 3.13 \\
+Scikit-Learn Version & 1.5.x \\
+IDE & Jupyter Notebook (VS Code) \\
+Operating System & Windows 11 \\
+Hardware & Intel i5, 16GB RAM \\
+\bottomrule
+\end{tabular}
+
+\section{Hyperparameter Selection}
+
+\begin{tabular}{ll}
+\toprule
+Parameter & Value\\
+\midrule
+Feature Selection Method & SelectKBest (ANOVA F-test) \\
+Number of features selected (k) & 5 \\
+Test size & 0.2 \\
+Validation size & 0.1 \\
+Random state & 42 \\
+Scaling & StandardScaler \\
+\bottomrule
+\end{tabular}
+
+Since plain Linear Regression does not really have hyperparameters to tune (its a closed form solution), the only real "hyperparameters" for this experiment were the ones controlling the pipeline itself, mainly how many features to keep (k=5) and the train/val/test ratios.
+
+\section{Results}
+
+\begin{tabular}{lc}
+\toprule
+Metric & Value\\
+\midrule
+MAE & 0.379 \\
+MSE & 0.275 \\
+RMSE & 0.524 \\
+R\textsuperscript{2} Score & 0.686 \\
+\bottomrule
+\end{tabular}
+
+\textit{Note: } Since this is a regression problem the classification metrics (Accuracy, Precision, Recall, F1, ROC-AUC) from the template do not really apply here, MAE/MSE/RMSE/R2 were used instead which is what the \texttt{evaluate\_model()} function returns for \texttt{task="regression"}.
+
+\begin{lstlisting}[language=,caption={Console output -- Model evaluation}]
+FEATURE SELECTION
+Selected Features:
+['AccelSec', 'FastCharge_KmH', 'RapidCharge', 'PlugType', 'Segment']
+DATA SPLITTING
+Training Shape : (71, 5)
+Validation Shape : (11, 5)
+Testing Shape : (21, 5)
+
+REGRESSION MODEL
+MODEL EVALUATION
+MAE : 0.3788909542438544
+MSE : 0.27482686024636516
+RMSE : 0.5242393158151772
+R2 Score : 0.6860123848598272
+\end{lstlisting}
+
+\section{Result Visualization}
+
+The correlation heatmap and outlier/feature distribution plots generated by \texttt{perform\_eda()} (Figures 1 and 2 above) double up as the main visulizations for this experiment, since a full pipeline covering EDA + preprocessing + modelling was the actual goal here rather than just one algorithm. A dedicated confusion matrix / ROC curve is not applicable in this run because the task turned out to be regression and not classification, note that the \texttt{evaluate\_model()} function does plot a confusion matrix automatically whenever \texttt{task="classification"} is passed, that part will be used in the next experiment when we work with the Iris or Diabetes datasets.
+
+\begin{itemize}
+\item \textbf{Correlation Matrix:} Shown in Figure 1, subplot 2. Helps identify which features are actually related to price before doing feature selection.
+\item \textbf{Feature Means / Distribution:} Shown in Figure 1 and 2, subplots 3, 4, 8, 9, 10. Useful to see how scaling changed the spread of each feature.
+\item \textbf{Outlier Count:} Subplot 11 in both figures, useful to check whether IQR clipping actually reduced the number of extreme values in each column.
+\end{itemize}
+
+\section{Discussion}
+This experiment was less about "does the model perform well" and more about getting the workflow right, so the R2 of 0.686 is honestly a decent starting point for a linear model on a small 103-row dataset, but its definately not great and there is scope for improvement. A few things that could be tried next time: use a Random Forest or Gradient Boosting regressor instead of plain Linear Regression since the relation between EV specs and price is probably not fully linear, try a different k value for feature selection (5 might be too few, some information could be getting dropped), and maybe use RobustScaler instead of StandardScaler given how many outliers were present in the raw price column.
+
+One thing I noticed while running this is that \texttt{SelectKBest} with the ANOVA test threw a warning about constant features and division by zero -- this happened because after Label Encoding some categorical columns basically became near constant after clipping, so this is something to keep in mind when combining outlier clipping with encoding + feature selection in that exact order, the order of operations in the pipeline actually does matter here.
+
+Overall the modular design (seperate functions for EDA, preprocessing, feature selection, splitting and evaluation) worked out well, it made testing and debugging each part individually a lot easier, and this same set of functions can basically just be re-used as-is for the classification/clustering experiments coming up later in the semester.
+
+\section{Conclusion}
+In this experiment, the Numpy, Pandas, Scipy, Scikit-learn and Matplotlib libraries were explored practically by building a small end-to-end, resuable ML pipeline covering EDA, preprocessing, feature selection, data splitting and model evaluation, and testing it on the Electric Car Data dataset for a price prediction (regression) task. The Linear Regression model gave a reasonable R2 score of 0.686 on the test set. Along with the coding part, five real world datasets (Iris, Loan Amount, Diabetes, Spam, MNIST) were studied and classified according to the type of ML task they represent, which gave a good overview of how different problems (classification vs regression, tabular vs text vs image data) need different preprocessing and feature selection strategies. This foundation should make it a lot easier to jump straight into the actual algorithm-focused experiments from here on.
+
+\section{References}
+\begin{enumerate}[label={[\arabic*]}]
+\item Pedregosa, F. et al., ``Scikit-learn: Machine Learning in Python,'' \textit{Journal of Machine Learning Research}, vol. 12, pp. 2825--2830, 2011.
+\item W. McKinney, ``Data Structures for Statistical Computing in Python,'' \textit{Proceedings of the 9th Python in Science Conference}, pp. 56--61, 2010.
+\item C. R. Harris et al., ``Array programming with NumPy,'' \textit{Nature}, vol. 585, pp. 357--362, 2020.
+\item J. D. Hunter, ``Matplotlib: A 2D Graphics Environment,'' \textit{Computing in Science \& Engineering}, vol. 9, no. 3, pp. 90--95, 2007.
+\item Kaggle, ``Electric Vehicle Dataset,'' [Online]. Available: \url{https://www.kaggle.com/datasets/geoffnel/evs-one-electric-vehicle-dataset}.
+\item UCI Machine Learning Repository, [Online]. Available: \url{https://archive.ics.uci.edu/}.
+\end{enumerate}
+
+\end{document}
